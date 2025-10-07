@@ -55,16 +55,29 @@ function useAudioRecorder() {
     // pass a timeslice so ondataavailable fires periodically (larger chunk aids decoding)
     mediaRecorder.current.start(2000)
   }
-  const stop = async () => {
-    if (!mediaRecorder.current) return null
-    await new Promise(r => { mediaRecorder.current.onstop = r; mediaRecorder.current.stop() })
-    mediaStream.current?.getTracks().forEach(t => t.stop())
-    if (levelTimer.current) { clearInterval(levelTimer.current); levelTimer.current = null }
-    if (audioCtx.current) { try { audioCtx.current.close() } catch {} audioCtx.current = null; analyser.current = null }
-    const blob = new Blob(chunks.current, { type: 'audio/webm' })
-    const arrayBuffer = await blob.arrayBuffer()
-    return new Uint8Array(arrayBuffer)
-  }
+
+  // --- THIS IS THE CORRECTED FUNCTION ---
+  const stop = () => {
+    return new Promise(resolve => {
+      if (!mediaRecorder.current) return resolve(null);
+
+      // Resolve the promise *inside* the onstop handler to ensure all data is collected
+      mediaRecorder.current.onstop = async () => {
+        const blob = new Blob(chunks.current, { type: 'audio/webm' });
+        const arrayBuffer = await blob.arrayBuffer();
+        
+        // Clean up everything after processing the data
+        mediaStream.current?.getTracks().forEach(t => t.stop());
+        if (levelTimer.current) { clearInterval(levelTimer.current); levelTimer.current = null }
+        if (audioCtx.current) { try { audioCtx.current.close() } catch {} audioCtx.current = null; analyser.current = null }
+
+        resolve(new Uint8Array(arrayBuffer));
+      };
+
+      mediaRecorder.current.stop();
+    });
+  };
+
   const requestPermission = async () => {
     const tmp = await navigator.mediaDevices.getUserMedia({ audio: true })
     tmp.getTracks().forEach(t => t.stop())
@@ -128,7 +141,7 @@ function App() {
   const [debug, setDebug] = useState([])
 
   useEffect(() => {
-    axios.get(`${API_BASE}/health`).then(r=>setHealth(r.data)).catch(()=>setHealth({ ok:false }))
+    axios.get(new URL('/health', API_BASE).href).then(r=>setHealth(r.data)).catch(()=>setHealth({ ok:false }))
   }, [])
 
   const log = (entry) => setDebug(d => [...d.slice(-199), { t: Date.now(), ...entry }])
@@ -149,7 +162,8 @@ function App() {
   // WS control using ggwave-cli (sender side real-time)
   const openWs = () => {
     if (wsRef.current) return
-    const ws = new WebSocket('wss://vocrypt.onrender.com/ws/cli');
+    const wsUrl = API_BASE.replace(/^http/, 'ws') + '/ws/cli';
+    const ws = new WebSocket(wsUrl);
     ws.onopen = () => { setStatus('WS connected (CLI mode)'); log({ type:'ws', msg:'connected' }) }
     ws.onmessage = (ev) => {
       try {
@@ -178,7 +192,11 @@ function App() {
       return
     }
     const started = performance.now()
-    const resp = await fetch(`${API_BASE}/encode`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) })
+    const resp = await fetch(new URL('/encode', API_BASE).href, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) })
+    if (!resp.ok) {
+        setStatus(`Error: ${resp.statusText}`);
+        return;
+    }
     const wav = await resp.arrayBuffer()
     log({ type:'http_encode_ms', ms: Math.round(performance.now()-started) })
     const audio = new Audio(URL.createObjectURL(new Blob([wav], { type: 'audio/wav' })))
@@ -197,7 +215,7 @@ function App() {
     const form = new FormData()
     form.append('file', file)
     const started = performance.now()
-    const r = await fetch(`${API_BASE}/decode`, { method: 'POST', body: form })
+    const r = await fetch(new URL('/decode', API_BASE).href, { method: 'POST', body: form })
     const j = await r.json()
     log({ type:'http_decode_ms', ms: Math.round(performance.now()-started), message: j.message })
     setLeftMsgs(m => [...m, { role: 'user', text: j.message || '(no message detected)' }])
@@ -231,7 +249,7 @@ function App() {
                     recorder.onLevel((lvl)=> setMicLevel(lvl))
                   } catch (e) {
                     setStatus('Microphone permission denied or unavailable')
-                    alert('Microphone permission is required. If blocked, allow mic for this site (localhost) or use HTTPS.')
+                    alert('Microphone permission is required. If blocked, allow mic for this site or use HTTPS.')
                     return
                   }
                   recorder.onChunk(async (blob)=>{
@@ -239,7 +257,7 @@ function App() {
                     form.append('file', blob, 'chunk.webm')
                     try {
                       const t0 = performance.now()
-                      const r = await fetch(`${API_BASE}/decode-webm`, { method:'POST', body: form })
+                      const r = await fetch(new URL('/decode-webm', API_BASE).href, { method:'POST', body: form })
                       const j = await r.json()
                       log({ type:'decode_webm_ms', ms: Math.round(performance.now()-t0), message: j.message })
                       if (j.message) setLeftMsgs(m=>[...m, { role:'user', text: j.message }])
@@ -315,5 +333,3 @@ function Composer({ onSend }) {
 }
 
 createRoot(document.getElementById('root')).render(<App />)
-
-
