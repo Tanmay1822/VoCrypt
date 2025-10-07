@@ -25,11 +25,14 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Paths to ggwave binaries
 const ENV_BIN_DIR = process.env.GGWAVE_BIN_DIR || '';
 const FALLBACK_BIN_DIR = path.resolve('/Users/tanmayjain/Desktop/final/ggwave/build-macos/bin');
-const BIN_DIR = fs.existsSync(ENV_BIN_DIR) ? ENV_BIN_DIR : FALLBACK_BIN_DIR;
+// AFTER (Correct for production)
+const BIN_DIR = process.env.GGWAVE_BIN_DIR; // e.g., /opt/ggwave/bin
 const TO_FILE = path.join(BIN_DIR, 'ggwave-to-file');
 const FROM_FILE = path.join(BIN_DIR, 'ggwave-from-file');
-const CLI_BIN = process.env.GGWAVE_CLI || path.join('/Users/tanmayjain/Desktop/final/ggwave/build/bin', 'ggwave-cli');
+const CLI_BIN = process.env.GGWAVE_CLI; // e.g., /opt/ggwave/bin/ggwave-cli
 
+// It's crucial that GGWAVE_BIN_DIR and GGWAVE_CLI are set in the environment.
+// Your Dockerfile already does this, so you are good.
 function ensureBinaryExists(filePath) {
   try {
     fs.accessSync(filePath, fs.constants.X_OK);

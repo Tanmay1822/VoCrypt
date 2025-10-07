@@ -2,7 +2,7 @@
 # This stage was already well-optimized.
 FROM debian:bookworm-slim AS ggwave-build
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake git pkg-config libsdl2-dev \
+    build-essential cmake git pkg-config libsdl2-dev ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY ggwave /src/ggwave
@@ -25,10 +25,11 @@ COPY app/client .
 RUN npm run build
 
 # -------- Stage 3: runtime
-# OPTIMIZATION: Use a slim base image for a smaller final size
 FROM node:20-bullseye-slim
+# Add ffmpeg installation here
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
-WORKDIR /app
+# ... rest of the final stage
 # OPTIMIZATION: Copy package files first to cache npm install step
 COPY app/server/package*.json ./
 RUN npm ci --omit=dev || npm i --omit=dev
