@@ -14,6 +14,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(cors());
 app.use(express.json());
+
 // Serve built client if present (for container deploy)
 const distDir = path.resolve(__dirname, '../../client/dist');
 if (fs.existsSync(distDir)) {
@@ -22,18 +23,16 @@ if (fs.existsSync(distDir)) {
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Paths to ggwave binaries
-const ENV_BIN_DIR = process.env.GGWAVE_BIN_DIR || '';
-const FALLBACK_BIN_DIR = path.resolve('/Users/tanmayjain/Desktop/final/ggwave/build-macos/bin');
-// AFTER (Correct for production)
-const BIN_DIR = process.env.GGWAVE_BIN_DIR; // e.g., /opt/ggwave/bin
+// --- CORRECTED PATHS ---
+// This now correctly and cleanly uses only the environment variables from your Dockerfile.
+const BIN_DIR = process.env.GGWAVE_BIN_DIR;
 const TO_FILE = path.join(BIN_DIR, 'ggwave-to-file');
 const FROM_FILE = path.join(BIN_DIR, 'ggwave-from-file');
-const CLI_BIN = process.env.GGWAVE_CLI; // e.g., /opt/ggwave/bin/ggwave-cli
+const CLI_BIN = process.env.GGWAVE_CLI;
 
-// It's crucial that GGWAVE_BIN_DIR and GGWAVE_CLI are set in the environment.
-// Your Dockerfile already does this, so you are good.
 function ensureBinaryExists(filePath) {
+  // Gracefully handle cases where filePath might be undefined if env vars are missing
+  if (!filePath) return false;
   try {
     fs.accessSync(filePath, fs.constants.X_OK);
     return true;
@@ -52,7 +51,7 @@ app.post('/encode', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'message is required' });
 
   if (!ensureBinaryExists(TO_FILE)) {
-    return res.status(500).json({ error: 'ggwave-to-file binary not found. Build it first.' });
+    return res.status(500).json({ error: 'ggwave-to-file binary not found or not configured.' });
   }
 
   // Create temp wav path
@@ -97,7 +96,7 @@ app.post('/decode', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'file is required (audio/wav)' });
 
   if (!ensureBinaryExists(FROM_FILE)) {
-    return res.status(500).json({ error: 'ggwave-from-file binary not found. Build it first.' });
+    return res.status(500).json({ error: 'ggwave-from-file binary not found or not configured.' });
   }
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ggwave-'));
@@ -121,11 +120,10 @@ app.post('/decode', upload.single('file'), (req, res) => {
 app.post('/decode-webm', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'file is required (audio/webm)' });
   if (!ensureBinaryExists(FROM_FILE)) {
-    return res.status(500).json({ error: 'ggwave-from-file binary not found. Build it first.' });
+    return res.status(500).json({ error: 'ggwave-from-file binary not found or not configured.' });
   }
 
   const ffmpeg = 'ffmpeg';
-  // quick existence check
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ggwave-'));
   const webmPath = path.join(tmpDir, 'in.webm');
   const wavPath = path.join(tmpDir, 'in.wav');
@@ -159,7 +157,7 @@ app.post('/decode-webm', upload.single('file'), (req, res) => {
 
 const PORT = process.env.PORT || 5055;
 const server = app.listen(PORT, () => {
-  console.log(`ggwave api listening on http://localhost:${PORT}`);
+  console.log(`ggwave api listening on port ${PORT}`);
 });
 
 // WebSocket: spawn ggwave-cli per connection
@@ -197,4 +195,20 @@ wss.on('connection', (ws) => {
   });
 });
 
+// --- RECOMMENDED: Graceful Shutdown ---
+function gracefulShutdown() {
+  console.log('Received shutdown signal, shutting down gracefully.');
+  server.close(() => {
+    console.log('Closed out remaining connections.');
+    process.exit(0);
+  });
 
+  // Force shutdown after 10 seconds
+  setTimeout(() => {
+    console.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', gracefulShutdown); // For Render/Docker
+process.on('SIGINT', gracefulShutdown);  // For local Ctrl+C
