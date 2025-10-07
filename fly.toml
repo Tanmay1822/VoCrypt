@@ -1,0 +1,24 @@
+app = "ggwave-sound-app"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "5055"
+
+[http_service]
+  internal_port = 5055
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[services.ports]]
+  port = 80
+  handlers = ["http"]
+
+[[services.ports]]
+  port = 443
+  handlers = ["tls", "http"]

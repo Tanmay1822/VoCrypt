@@ -1,0 +1,65 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node / JS
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Vite/Build outputs
+build/
+dist/
+app/client/dist/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env files
+.env
+.env.*
+*.local
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/
+*.lcov
+
+# ggwave CMake/build artifacts
+# top-level builds
+/ggwave/build/
+/ggwave/build-macos/
+
+# nested CMake artifacts
+/ggwave/**/CMakeFiles/
+/ggwave/**/CMakeCache.txt
+/ggwave/**/cmake_install.cmake
+/ggwave/**/compile_commands.json
+/ggwave/**/Makefile
+/ggwave/**/CTestTestfile.cmake
+/ggwave/**/CPack*.
+/ggwave/**/bin/
+/ggwave/**/libggwave*.a
+/ggwave/**/libggwave*.dylib
+
+# example/build intermediates
+/ggwave/**/examples/**/CMakeFiles/
+/ggwave/**/examples/**/Makefile
+
+# Media recordings
+app/REC-*.mp4
+
+# Misc
+*.tmp
+*.bak
+Thumbs.db

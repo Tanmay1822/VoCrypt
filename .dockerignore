@@ -1,0 +1,8 @@
+node_modules
+**/node_modules
+.git
+.gitignore
+app/client/node_modules
+app/server/node_modules
+app/client/dist
+**/.DS_Store
