@@ -8,7 +8,7 @@ WORKDIR /src
 COPY ggwave /src/ggwave
 RUN mkdir -p /src/ggwave/build-linux \
  && cd /src/ggwave/build-linux \
- && cmake -DGGWAVE_SUPPORT_SDL2=ON -DGGWAVE_BUILD_EXAMPLES=ON cmake -D USE_FINDSDL2 .. \
+ && cmake -DGGWAVE_SUPPORT_SDL2=ON -DGGWAVE_BUILD_EXAMPLES=ON -DUSE_FINDSDL2=ON .. \
  && cmake --build . --config Release -j $(nproc)
 RUN mkdir -p /opt/ggwave/bin \
  && cp /src/ggwave/build-linux/bin/ggwave-to-file /opt/ggwave/bin/ \
