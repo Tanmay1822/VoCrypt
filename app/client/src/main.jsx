@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import axios from 'axios'
 
-const API_BASE = 'http://localhost:5055'
+const API_BASE = 'https://vocrypt.onrender.com/'
 
 function useAudioRecorder() {
   const mediaStream = useRef(null)
