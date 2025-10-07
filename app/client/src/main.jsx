@@ -149,7 +149,7 @@ function App() {
   // WS control using ggwave-cli (sender side real-time)
   const openWs = () => {
     if (wsRef.current) return
-    const ws = new WebSocket(`ws://localhost:5055/ws/cli`)
+    const ws = new WebSocket('wss://vocrypt.onrender.com/ws/cli');
     ws.onopen = () => { setStatus('WS connected (CLI mode)'); log({ type:'ws', msg:'connected' }) }
     ws.onmessage = (ev) => {
       try {
