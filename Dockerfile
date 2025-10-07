@@ -27,7 +27,7 @@ RUN npm run build
 # -------- Stage 3: runtime
 FROM node:20-bullseye-slim
 # Add ffmpeg installation here
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libsdl2-2.0-0 && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 # ... rest of the final stage
 # OPTIMIZATION: Copy package files first to cache npm install step
