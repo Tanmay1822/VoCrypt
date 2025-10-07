@@ -1,4 +1,5 @@
 # -------- Stage 1: build ggwave (Linux)
+# This stage was already well-optimized.
 FROM debian:bookworm-slim AS ggwave-build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake git pkg-config libsdl2-dev \
@@ -17,19 +18,29 @@ RUN mkdir -p /opt/ggwave/bin \
 # -------- Stage 2: build client
 FROM node:20-bullseye AS client-build
 WORKDIR /app
-COPY app/client /app
-RUN npm ci || npm i \
- && npm run build
+# OPTIMIZATION: Copy package files first to cache npm install step
+COPY app/client/package*.json ./
+RUN npm ci || npm i
+COPY app/client .
+RUN npm run build
 
 # -------- Stage 3: runtime
-FROM node:20-bullseye
+# OPTIMIZATION: Use a slim base image for a smaller final size
+FROM node:20-bullseye-slim
 ENV NODE_ENV=production
 WORKDIR /app
-COPY app/server /app
-COPY --from:client-build /app/dist /app/../client/dist
+# OPTIMIZATION: Copy package files first to cache npm install step
+COPY app/server/package*.json ./
+RUN npm ci --omit=dev || npm i --omit=dev
+COPY app/server .
+# ---
+COPY --from=client-build /app/dist /app/../client/dist
 COPY --from=ggwave-build /opt/ggwave/bin /opt/ggwave/bin
 ENV GGWAVE_BIN_DIR=/opt/ggwave/bin
 ENV GGWAVE_CLI=/opt/ggwave/bin/ggwave-cli
-RUN npm ci --omit=dev || npm i --omit=dev
 EXPOSE 5055
+
+# OPTIMIZATION: Run as a non-root user for better security
+USER node
+
 CMD ["node", "src/index.js"]
