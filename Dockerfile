@@ -11,11 +11,12 @@ RUN mkdir -p /src/ggwave/build-linux \
  && cmake -DBUILD_SHARED_LIBS=ON -DGGWAVE_SUPPORT_SDL2=ON -DGGWAVE_BUILD_EXAMPLES=ON -DUSE_FINDSDL2=ON .. \
  && cmake --build . --config Release -j $(nproc)
 
-# Create directories for binaries and libraries.
-# Copy the executable and the correct shared library (.so file).
+# --- CORRECTED PART ---
+# The build logs show the library is created in the 'src' subdirectory.
+# This copies the executable and the shared library from their exact locations.
 RUN mkdir -p /opt/ggwave/bin /opt/ggwave/lib \
  && cp /src/ggwave/build-linux/bin/ggwave-cli /opt/ggwave/bin/ \
- && cp /src/ggwave/build-linux/libggwave.so /opt/ggwave/lib/
+ && cp /src/ggwave/build-linux/src/libggwave.so /opt/ggwave/lib/
 
 # -------- Stage 2: build client
 # This stage builds the frontend React/Vue/etc. application.
@@ -39,7 +40,6 @@ COPY app/server .
 # Copy built assets from previous stages.
 COPY --from=client-build /app/dist /app/client/dist
 COPY --from=ggwave-build /opt/ggwave/bin /opt/ggwave/bin
-# <--- THIS LINE IS NOW FIXED
 COPY --from=ggwave-build /opt/ggwave/lib /opt/ggwave/lib
 
 # Set the library path for the OS, and set app-specific paths.
