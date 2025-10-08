@@ -10,10 +10,11 @@ RUN mkdir -p /src/ggwave/build-linux \
  && cd /src/ggwave/build-linux \
  && cmake -DGGWAVE_SUPPORT_SDL2=ON -DGGWAVE_BUILD_EXAMPLES=ON -DUSE_FINDSDL2=ON .. \
  && cmake --build . --config Release -j $(nproc)
-RUN mkdir -p /opt/ggwave/bin \
- && cp /src/ggwave/build-linux/bin/ggwave-to-file /opt/ggwave/bin/ \
- && cp /src/ggwave/build-linux/bin/ggwave-from-file /opt/ggwave/bin/ \
- && cp /src/ggwave/build-linux/bin/ggwave-cli /opt/ggwave/bin/
+
+# <--- CHANGE: Create directories and copy both binaries AND libraries
+RUN mkdir -p /opt/ggwave/bin /opt/ggwave/lib \
+ && cp /src/ggwave/build-linux/bin/ggwave-cli /opt/ggwave/bin/ \
+ && cp /src/ggwave/build-linux/lib/libggwave-common.so /opt/ggwave/lib/
 
 # -------- Stage 2: build client
 FROM node:20-bullseye AS client-build
@@ -31,14 +32,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libsdl2-
 ENV NODE_ENV=production
 # ... rest of the final stage
 # OPTIMIZATION: Copy package files first to cache npm install step
+WORKDIR /app/server
 COPY app/server/package*.json ./
 RUN npm ci --omit=dev || npm i --omit=dev
 COPY app/server .
 # ---
-COPY --from=client-build /app/dist /app/../client/dist
+COPY --from=client-build /app/dist /app/client/dist
 COPY --from=ggwave-build /opt/ggwave/bin /opt/ggwave/bin
+# <--- CHANGE: Copy the shared libraries from the build stage
+COPY --from=ggwave-build /opt/ggwave/lib /opt/ggwave/lib
+
+# <--- CHANGE: Set library path for the OS and app-specific paths
+ENV LD_LIBRARY_PATH=/opt/ggwave/lib:$LD_LIBRARY_PATH
 ENV GGWAVE_BIN_DIR=/opt/ggwave/bin
 ENV GGWAVE_CLI=/opt/ggwave/bin/ggwave-cli
+
 EXPOSE 5055
 
 # OPTIMIZATION: Run as a non-root user for better security
