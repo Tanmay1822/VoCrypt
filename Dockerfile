@@ -8,7 +8,6 @@ WORKDIR /src
 COPY ggwave /src/ggwave
 RUN mkdir -p /src/ggwave/build-linux \
  && cd /src/ggwave/build-linux \
- # <--- CHANGE 1: Added '-DBUILD_SHARED_LIBS=ON' to force .so file creation
  && cmake -DBUILD_SHARED_LIBS=ON -DGGWAVE_SUPPORT_SDL2=ON -DGGWAVE_BUILD_EXAMPLES=ON -DUSE_FINDSDL2=ON .. \
  && cmake --build . --config Release -j $(nproc)
 
@@ -16,7 +15,6 @@ RUN mkdir -p /src/ggwave/build-linux \
 # Copy the executable and the correct shared library (.so file).
 RUN mkdir -p /opt/ggwave/bin /opt/ggwave/lib \
  && cp /src/ggwave/build-linux/bin/ggwave-cli /opt/ggwave/bin/ \
- # <--- CHANGE 2: Confirmed correct path for the newly created library
  && cp /src/ggwave/build-linux/libggwave.so /opt/ggwave/lib/
 
 # -------- Stage 2: build client
@@ -41,7 +39,8 @@ COPY app/server .
 # Copy built assets from previous stages.
 COPY --from=client-build /app/dist /app/client/dist
 COPY --from=ggwave-build /opt/ggwave/bin /opt/ggwave/bin
-COPY --from-ggwave-build /opt/ggwave/lib /opt/ggwave/lib
+# <--- THIS LINE IS NOW FIXED
+COPY --from=ggwave-build /opt/ggwave/lib /opt/ggwave/lib
 
 # Set the library path for the OS, and set app-specific paths.
 ENV LD_LIBRARY_PATH=/opt/ggwave/lib:$LD_LIBRARY_PATH
