@@ -19,6 +19,7 @@ RUN mkdir -p /opt/ggwave/bin /opt/ggwave/lib \
  && cp /src/ggwave/build-linux/bin/ggwave-to-file /opt/ggwave/bin/ \
  && cp /src/ggwave/build-linux/bin/ggwave-from-file /opt/ggwave/bin/ \
  && cp /src/ggwave/build-linux/src/libggwave.so /opt/ggwave/lib/ \
+ && cp /src/ggwave/build-linux/examples/libggwave-common*.so /opt/ggwave/lib/ \
  && chmod +x /opt/ggwave/bin/*
 
 # -------- Stage 2: build client
