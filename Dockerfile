@@ -24,7 +24,7 @@ RUN mkdir -p /opt/ggwave/bin /opt/ggwave/lib \
 
 # -------- Stage 2: build client
 # This stage builds the frontend React/Vue/etc. application.
-FROM node:20-bullseye AS client-build
+FROM node:20-bookworm AS client-build
 WORKDIR /app
 COPY app/client/package*.json ./
 RUN npm ci || npm i
@@ -33,7 +33,7 @@ RUN npm run build
 
 # -------- Stage 3: runtime
 # This is the final, lightweight image that will run your application.
-FROM node:20-bullseye-slim
+FROM node:20-bookworm-slim
 # Install runtime dependencies needed by ggwave and ffmpeg.
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg libsdl2-2.0-0 && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
