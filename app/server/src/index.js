@@ -25,24 +25,47 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // --- CORRECTED PATHS ---
 // This now correctly and cleanly uses only the environment variables from your Dockerfile.
-const BIN_DIR = process.env.GGWAVE_BIN_DIR;
+const BIN_DIR = process.env.GGWAVE_BIN_DIR || '/opt/ggwave/bin';
 const TO_FILE = path.join(BIN_DIR, 'ggwave-to-file');
 const FROM_FILE = path.join(BIN_DIR, 'ggwave-from-file');
-const CLI_BIN = process.env.GGWAVE_CLI;
+const CLI_BIN = process.env.GGWAVE_CLI || path.join(BIN_DIR, 'ggwave-cli');
 
 function ensureBinaryExists(filePath) {
   // Gracefully handle cases where filePath might be undefined if env vars are missing
-  if (!filePath) return false;
+  if (!filePath) {
+    console.error('Binary path is undefined');
+    return false;
+  }
   try {
     fs.accessSync(filePath, fs.constants.X_OK);
+    console.log(`Binary exists and is executable: ${filePath}`);
     return true;
-  } catch {
+  } catch (error) {
+    console.error(`Binary not found or not executable: ${filePath}`, error.message);
     return false;
   }
 }
 
-app.get('/health', (_req, res) => {
-  res.json({ ok: true, toFile: ensureBinaryExists(TO_FILE), fromFile: ensureBinaryExists(FROM_FILE), cli: ensureBinaryExists(CLI_BIN) });
+// Check if ffmpeg is available
+function checkFfmpeg() {
+  return new Promise((resolve) => {
+    const ffmpeg = spawn('ffmpeg', ['-version'], { stdio: 'pipe' });
+    ffmpeg.on('error', () => resolve(false));
+    ffmpeg.on('close', (code) => resolve(code === 0));
+    ffmpeg.on('timeout', () => resolve(false));
+    setTimeout(() => { ffmpeg.kill(); resolve(false); }, 5000);
+  });
+}
+
+app.get('/health', async (_req, res) => {
+  const ffmpegAvailable = await checkFfmpeg();
+  res.json({ 
+    ok: true, 
+    toFile: ensureBinaryExists(TO_FILE), 
+    fromFile: ensureBinaryExists(FROM_FILE), 
+    cli: ensureBinaryExists(CLI_BIN),
+    ffmpeg: ffmpegAvailable
+  });
 });
 
 // Encode a text into WAV. Body: { message, volume?, sampleRate?, protocol? }
@@ -127,7 +150,12 @@ app.post('/decode-webm', upload.single('file'), (req, res) => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ggwave-'));
   const webmPath = path.join(tmpDir, 'in.webm');
   const wavPath = path.join(tmpDir, 'in.wav');
-  fs.writeFileSync(webmPath, req.file.buffer);
+  
+  try {
+    fs.writeFileSync(webmPath, req.file.buffer);
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to write temporary file', details: error.message });
+  }
 
   const ff = spawn(ffmpeg, ['-y', '-v', 'error', '-i', webmPath, '-ar', '48000', '-ac', '1', '-f', 'wav', wavPath]);
   let ffErr = '';
@@ -158,6 +186,14 @@ app.post('/decode-webm', upload.single('file'), (req, res) => {
 const PORT = process.env.PORT || 5055;
 const server = app.listen(PORT, () => {
   console.log(`ggwave api listening on port ${PORT}`);
+  console.log(`Environment variables:`);
+  console.log(`- GGWAVE_BIN_DIR: ${process.env.GGWAVE_BIN_DIR || 'not set'}`);
+  console.log(`- GGWAVE_CLI: ${process.env.GGWAVE_CLI || 'not set'}`);
+  console.log(`- LD_LIBRARY_PATH: ${process.env.LD_LIBRARY_PATH || 'not set'}`);
+  console.log(`Binary paths:`);
+  console.log(`- TO_FILE: ${TO_FILE}`);
+  console.log(`- FROM_FILE: ${FROM_FILE}`);
+  console.log(`- CLI_BIN: ${CLI_BIN}`);
 });
 
 // WebSocket: spawn ggwave-cli per connection

@@ -16,7 +16,10 @@ RUN mkdir -p /src/ggwave/build-linux \
 # This copies the executable and the shared library from their exact locations.
 RUN mkdir -p /opt/ggwave/bin /opt/ggwave/lib \
  && cp /src/ggwave/build-linux/bin/ggwave-cli /opt/ggwave/bin/ \
- && cp /src/ggwave/build-linux/src/libggwave.so /opt/ggwave/lib/
+ && cp /src/ggwave/build-linux/bin/ggwave-to-file /opt/ggwave/bin/ \
+ && cp /src/ggwave/build-linux/bin/ggwave-from-file /opt/ggwave/bin/ \
+ && cp /src/ggwave/build-linux/src/libggwave.so /opt/ggwave/lib/ \
+ && chmod +x /opt/ggwave/bin/*
 
 # -------- Stage 2: build client
 # This stage builds the frontend React/Vue/etc. application.
@@ -41,6 +44,9 @@ COPY app/server .
 COPY --from=client-build /app/dist /app/client/dist
 COPY --from=ggwave-build /opt/ggwave/bin /opt/ggwave/bin
 COPY --from=ggwave-build /opt/ggwave/lib /opt/ggwave/lib
+
+# Ensure binaries have execute permissions
+RUN chmod +x /opt/ggwave/bin/ggwave-cli /opt/ggwave/bin/ggwave-to-file /opt/ggwave/bin/ggwave-from-file
 
 # Set the library path for the OS, and set app-specific paths.
 ENV LD_LIBRARY_PATH=/opt/ggwave/lib:$LD_LIBRARY_PATH
