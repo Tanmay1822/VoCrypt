@@ -148,7 +148,7 @@ function App() {
 
   const startSession = async () => {
     setInSession(true)
-    openWs()
+    // WS disabled: server has no audio device; use HTTP /encode for playback
   }
   const endSession = async () => {
     if (listening) {
@@ -186,21 +186,21 @@ function App() {
 
   const sendRight = async (text) => {
     setRightMsgs(m => [...m, { role: 'bot', text }])
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type:'send', text }))
-      log({ type:'ws_send', text })
-      return
-    }
     const started = performance.now()
-    const resp = await fetch(new URL('/encode', API_BASE).href, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) })
-    if (!resp.ok) {
-        setStatus(`Error: ${resp.statusText}`);
-        return;
+    try {
+      const resp = await fetch(new URL('/encode', API_BASE).href, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) })
+      if (!resp.ok) {
+        setStatus(`Error: ${resp.status} ${resp.statusText}`)
+        return
+      }
+      const wav = await resp.arrayBuffer()
+      log({ type:'http_encode_ms', ms: Math.round(performance.now()-started) })
+      const audio = new Audio(URL.createObjectURL(new Blob([wav], { type: 'audio/wav' })))
+      await new Promise(resolve => { audio.onended = resolve; audio.play() })
+    } catch (e) {
+      setStatus('Network error while encoding')
+      log({ type:'http_encode_err', err: String(e) })
     }
-    const wav = await resp.arrayBuffer()
-    log({ type:'http_encode_ms', ms: Math.round(performance.now()-started) })
-    const audio = new Audio(URL.createObjectURL(new Blob([wav], { type: 'audio/wav' })))
-    await new Promise(resolve => { audio.onended = resolve; audio.play() })
   }
 
   const playScriptSequentially = async () => {
